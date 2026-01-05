@@ -1,0 +1,13 @@
+services:
+  web-server:
+    build: ./web
+    container_name: web-server
+    ports:
+      - "8000:8000"
+    networks:
+      - edge-network
+    restart: unless-stopped
+
+networks:
+  edge-network:
+    external: true
