@@ -15,21 +15,11 @@ Fokus utama sistem ini bukan pada pengembangan aplikasi IoT secara kompleks, mel
 
 Alur data IoT pada sistem ini adalah sebagai berikut:
 
-Sensor (Simulator)
-   |
-   | MQTT
-   v
-MQTT Broker (Mosquitto)
-   |
-   v
-Receiver (MQTT Subscriber)
-   |
-   | HTTP
-   v
-Gateway (Edge Processing)
-   |
-   v
-Web Server (Backend API)
+Sensor (Simulator)  
+→ MQTT Broker (Mosquitto)  
+→ Receiver Service (MQTT Subscriber)  
+→ Gateway Service (Edge Processing)  
+→ Web Server (Backend API)
 
 
 Seluruh komponen dijalankan dalam bentuk container Docker dan dideploy pada sebuah edge device berupa AWS EC2.
