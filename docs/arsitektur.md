@@ -1,146 +1,147 @@
 # Dokumentasi Arsitektur Sistem IoT Edge dengan CI/CD
 
-## 1. Gambaran Umum
+## 1. Tujuan dan Ruang Lingkup Sistem
 
-Proyek ini mengimplementasikan sistem **IoT berbasis Edge Computing** yang terintegrasi dengan mekanisme **CI/CD otomatis** menggunakan GitHub Actions. Sistem dirancang untuk mensimulasikan alur data IoT dari sensor hingga aplikasi backend, serta mendukung pembaruan aplikasi edge secara otomatis tanpa intervensi manual ke server.
+Sistem ini merupakan prototipe jaringan Internet of Things (IoT) berbasis edge computing yang dirancang untuk mengimplementasikan dan menguji mekanisme Continuous Integration dan Continuous Deployment (CI/CD) pada layanan IoT berbasis container.
 
-Tujuan utama dari sistem ini adalah:
-
-* Mensimulasikan pengiriman data sensor IoT
-* Memproses data sedekat mungkin dengan sumber (edge device)
-* Menyediakan antarmuka backend melalui Web API
-* Mengimplementasikan CI/CD untuk service edge tanpa mengganggu control plane
+Fokus utama sistem ini bukan pada pengembangan aplikasi IoT secara kompleks, melainkan pada:
+- Otomatisasi proses build dan deployment container
+- Pemisahan control plane dan data plane
+- Pembaruan layanan edge tanpa intervensi manual ke edge device
 
 ---
 
-## 2. Arsitektur Tingkat Tinggi
+## 2. Arsitektur Sistem Secara Umum
 
-Alur data pada sistem dapat digambarkan sebagai berikut:
+Alur data IoT pada sistem ini adalah sebagai berikut:
 
-```
 Sensor (Simulator)
-        |
-        | MQTT (sensor/temperature)
-        v
+   |
+   | MQTT
+   v
 MQTT Broker (Mosquitto)
-        |
-        v
-Receiver Service (MQTT Subscriber)
-        |
-        | HTTP POST
-        v
-Gateway Service (Edge Processing)
-        |
-        v
-Web Server (API / Interface)
-```
+   |
+   v
+Receiver (MQTT Subscriber)
+   |
+   | HTTP
+   v
+Gateway (Edge Processing)
+   |
+   v
+Web Server (Backend API)
 
-Seluruh komponen dijalankan dalam container Docker dan dideploy pada sebuah **edge device** berupa instance AWS EC2.
+
+Seluruh komponen dijalankan dalam bentuk container Docker dan dideploy pada sebuah edge device berupa AWS EC2.
 
 ---
 
-## 3. Komponen Sistem
+## 3. Struktur Project dan Fungsi Setiap Komponen
+
+Bagian ini menjelaskan direktori dan file utama yang dibuat pada project beserta fungsinya.
+
+---
 
 ### 3.1 Sensor (Simulator)
 
-**Lokasi:** `sensor/sensor.py`
+Direktori: `sensor/`  
+File utama: `sensor.py`
 
-Sensor pada sistem ini merupakan simulasi menggunakan Python yang bertugas untuk:
+Fungsi:
+- Mensimulasikan perangkat sensor IoT
+- Menghasilkan data suhu secara periodik
+- Mengirim data ke MQTT broker menggunakan topik `sensor/temperature`
 
-* Menghasilkan data suhu secara periodik
-* Mengirimkan data ke MQTT broker
-
-**Topik MQTT:** `sensor/temperature`
-
-**Contoh payload:**
-
-```json
-{
-  "temperature": 27.5
-}
-```
+Sensor digunakan sebagai pengganti sensor fisik agar proses pengujian dan demo dapat dilakukan dengan mudah. Komponen ini tidak dikelola oleh CI/CD dan dijalankan secara manual.
 
 ---
 
 ### 3.2 MQTT Broker
 
-**Image:** `eclipse-mosquitto:2`
+Direktori: `mqtt-broker/`  
+Image: `eclipse-mosquitto:2`  
+File konfigurasi: `mosquitto.conf`
 
-MQTT broker berfungsi sebagai message broker yang menjembatani komunikasi antara sensor dan receiver. Broker menggunakan protokol MQTT yang umum digunakan pada sistem IoT karena ringan dan mendukung komunikasi real-time.
+Fungsi:
+- Menjadi message broker pada sistem IoT
+- Menjembatani komunikasi antara sensor dan receiver
+- Menyediakan mekanisme publish–subscribe menggunakan protokol MQTT
 
----
-
-### 3.3 Receiver Service
-
-**Lokasi:** `receiver/receiver.py`
-
-Receiver bertugas sebagai penghubung antara dunia IoT dan backend application. Fungsi utama receiver meliputi:
-
-* Melakukan subscribe ke topik MQTT
-* Menerima data dari sensor
-* Meneruskan data ke Gateway menggunakan HTTP
-
-Receiver berperan sebagai **bridge** antara protokol MQTT dan HTTP.
+MQTT broker dikategorikan sebagai service infrastruktur yang relatif stabil dan jarang berubah, sehingga tidak menjadi target CI/CD.
 
 ---
 
-### 3.4 Gateway Service
+### 3.3 Receiver Service (Layanan Dinamis)
 
-**Lokasi:** `gateway/gateway.py`
+Direktori: `receiver/`  
+File utama:
+- `receiver.py`
+- `Dockerfile`
 
-Gateway merupakan lapisan pemrosesan di sisi edge. Fungsinya antara lain:
+Fungsi:
+- Melakukan subscribe ke topik MQTT
+- Menerima data dari sensor
+- Meneruskan data ke gateway menggunakan HTTP
 
-* Menerima data dari receiver melalui endpoint `/ingest`
-* Melakukan logging dan preprocessing data
-* Meneruskan data ke Web Server
-
-Gateway berfungsi sebagai **edge processing layer** yang dapat dikembangkan untuk filtering, agregasi, atau validasi data.
-
----
-
-### 3.5 Web Server
-
-**Lokasi:** `web/web_server.py`
-
-Web server menyediakan antarmuka backend untuk pengguna atau sistem lain. Fungsinya meliputi:
-
-* Menyediakan Web API
-* Menampilkan atau menyajikan data hasil pemrosesan
-
-Endpoint yang tersedia antara lain:
-
-* `/`
-* (opsional) `/data/latest`, `/data/history`
-
-Web server berperan sebagai **control plane interface**.
+Receiver bersifat dinamis karena logika aplikasinya sering mengalami perubahan, seperti perubahan topik MQTT, format payload, atau mekanisme parsing data. Oleh karena itu, receiver menjadi salah satu target utama CI/CD.
 
 ---
 
-## 4. Container Orchestration
+### 3.4 Gateway Service (Layanan Dinamis)
 
-Sistem menggunakan Docker Compose untuk orkestrasi container dengan pemisahan tanggung jawab sebagai berikut:
+Direktori: `gateway/`  
+File utama:
+- `gateway.py`
+- `Dockerfile`
+
+Fungsi:
+- Menerima data dari receiver melalui endpoint `/ingest`
+- Melakukan logging dan preprocessing data
+- Meneruskan data ke web server
+
+Gateway merupakan lapisan edge processing yang sering mengalami perubahan logika, misalnya penambahan filtering, validasi, atau agregasi data. Gateway menjadi target utama CI/CD.
+
+---
+
+### 3.5 Web Server (Control Plane Interface)
+
+Direktori: `web/`  
+File utama:
+- `web_server.py`
+- `Dockerfile`
+
+Fungsi:
+- Menyediakan backend API
+- Menampilkan data hasil pemrosesan edge
+- Digunakan sebagai endpoint observasi saat demo
+
+Web server dikategorikan sebagai control plane interface dan tidak termasuk target CI/CD agar stabilitas layanan tetap terjaga.
+
+---
+
+## 4. Orkestrasi Container
 
 ### 4.1 Edge Data Plane
 
-**File:** `docker-compose-edge.yml`
+File: `docker-compose-edge.yml`
 
-Service yang dijalankan:
+File ini mengatur container:
+- mqtt-broker
+- receiver
+- gateway
 
-* `mqtt-broker`
-* `receiver`
-* `gateway`
+File `docker-compose-edge.yml` menjadi target utama CI/CD karena berisi layanan edge yang bersifat dinamis dan sering diperbarui.
 
-Service edge berada dalam satu Docker network bernama `edge-network` dan menjadi target utama CI/CD.
+---
 
 ### 4.2 Control Plane
 
-**File:** `docker-compose-control.yml`
+File: `docker-compose-control.yml`
 
-Service yang dijalankan:
+File ini mengatur container:
+- web-server
 
-* `web-server`
-
-Control plane dipisahkan untuk menjaga stabilitas layanan antarmuka dan tidak ikut ter-redeploy saat update edge service.
+File ini digunakan saat setup awal sistem dan tidak disentuh oleh pipeline CI/CD untuk menjaga kestabilan control plane.
 
 ---
 
@@ -148,113 +149,104 @@ Control plane dipisahkan untuk menjaga stabilitas layanan antarmuka dan tidak ik
 
 ### 5.1 Alur CI/CD
 
-```
-Developer
-   |
-   | git push
-   v
-GitHub Repository
-   |
-   | GitHub Actions
-   v
-Build & Push Docker Image
-   |
-   v
-Docker Hub
-   |
-   | SSH Deployment
-   v
-Edge Device (EC2)
-```
+Alur CI/CD pada sistem ini adalah sebagai berikut:
+
+Developer melakukan push ke repository GitHub  
+→ GitHub Actions menjalankan pipeline CI/CD  
+→ Image Docker receiver dan gateway dibuild  
+→ Image dipush ke Docker Hub  
+→ Edge device melakukan pull image terbaru  
+→ Container edge di-restart secara otomatis
 
 ---
 
-### 5.2 GitHub Actions Workflow
+### 5.2 Workflow CI/CD
 
-**File:** `.github/workflows/deploy.yml`
+File workflow: `.github/workflows/deploy.yml`
 
-Tahapan pipeline:
-
+Tahapan yang diotomatisasi:
 1. Checkout source code
 2. Login ke Docker Hub
-3. Build image `receiver` dan `gateway`
+3. Build image Docker untuk receiver dan gateway
 4. Push image ke Docker Hub
-5. SSH ke EC2
+5. SSH ke edge device
 6. Menjalankan `docker compose -f docker-compose-edge.yml pull`
 7. Menjalankan `docker compose -f docker-compose-edge.yml up -d`
 
-Pipeline hanya melakukan deployment pada **edge services**, tanpa memengaruhi web server.
+Pipeline ini hanya memengaruhi layanan edge dan tidak memengaruhi web server.
+
+---
+
+### 5.3 Container Registry
+
+Registry yang digunakan pada project ini adalah Docker Hub.
+
+Docker Hub berfungsi sebagai:
+- Penyimpanan image hasil build CI/CD
+- Penghubung antara pipeline CI/CD dan edge device
+
+Penggunaan Docker Hub bersifat fleksibel dan dapat digantikan dengan private registry pada implementasi nyata tanpa perubahan arsitektur CI/CD.
 
 ---
 
 ## 6. Edge Device
 
-**Platform:** AWS EC2
+Platform: AWS EC2
 
-**Peran:**
-
-* Menjalankan seluruh container edge dan control plane
-* Bertindak sebagai node edge
-* Memproses data dekat dengan sumber sensor
+Peran edge device:
+- Menjalankan seluruh container edge dan control plane
+- Menjadi target deployment otomatis
+- Mewakili edge device fisik seperti Raspberry Pi
 
 ---
 
-## 7. Keamanan
+## 7. Keamanan dan Konfigurasi
 
-Sistem menerapkan beberapa praktik keamanan dasar:
+Keamanan sistem diterapkan melalui:
+- Autentikasi SSH berbasis key
+- Penggunaan GitHub Secrets untuk credential sensitif
 
-* Autentikasi SSH berbasis key
-* Penggunaan GitHub Secrets untuk credential sensitif
-
-Secret yang digunakan:
-
-* `EC2_HOST`
-* `EC2_USER`
-* `EC2_SSH_KEY`
-* `DOCKERHUB_USERNAME`
-* `DOCKERHUB_TOKEN`
+Secret yang digunakan antara lain:
+- EC2_HOST
+- EC2_USER
+- EC2_SSH_KEY
+- DOCKERHUB_USERNAME
+- DOCKERHUB_TOKEN
 
 Tidak terdapat credential yang di-hardcode di source code.
 
 ---
 
-## 8. Karakteristik Sistem
+## 8. Pembagian Control Plane dan Data Plane
 
-| Aspek                    | Status     |
-| ------------------------ | ---------- |
-| Edge Computing           | ✓          |
-| Containerization         | ✓ (Docker) |
-| CI/CD Otomatis           | ✓          |
-| Real-time Data           | ✓ (MQTT)   |
-| Scalable                 | ✓          |
-| Production-ready Pattern | ✓          |
+Data Plane:
+- Sensor
+- MQTT Broker
+- Receiver
+- Gateway
+
+Control Plane:
+- GitHub Repository
+- GitHub Actions (CI/CD)
+- Docker Hub (Registry)
+- Web Server
+
+CI/CD beroperasi pada control plane tanpa mengganggu alur data IoT pada data plane.
 
 ---
 
-## 9. Contoh Update melalui CI/CD
+## 9. Manfaat Implementasi CI/CD
 
-Perubahan berikut dapat dilakukan tanpa login manual ke server:
-
-* Perubahan logika gateway
-* Penambahan logging
-* Bug fix pada receiver
-* Perubahan API backend
-
-Cukup dengan menjalankan:
-
-```bash
-git push
-```
+Dengan arsitektur ini, sistem memperoleh beberapa manfaat utama:
+- Pembaruan layanan edge menjadi otomatis
+- Downtime dapat diminimalkan
+- Risiko kesalahan manual berkurang
+- Sistem mudah direplikasi dan dikembangkan
 
 ---
 
 ## 10. Kesimpulan
 
-Sistem ini merepresentasikan implementasi arsitektur **IoT Edge modern** yang menggabungkan:
+Dokumentasi ini menjelaskan arsitektur sistem IoT berbasis edge yang dirancang khusus untuk mengimplementasikan mekanisme CI/CD berbasis container. Sistem dibangun secara modular dengan pemisahan yang jelas antara data plane dan control plane, serta siap diadaptasi ke jaringan IoT nyata.
 
-* Pemrosesan data di edge device
-* Orkestrasi container yang terpisah antara data plane dan control plane
-* CI/CD otomatis berbasis GitHub Actions
-
-Pendekatan ini mencerminkan praktik DevOps yang relevan untuk sistem IoT skala kecil hingga menengah.
-
+Catatan: Fokus utama penelitian ini adalah mekanisme CI/CD, bukan pengembangan aplikasi IoT.
