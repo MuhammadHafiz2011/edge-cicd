@@ -26,12 +26,17 @@ jobs:
           script: |
             set -e
             echo "[CI/CD] Applying Network as Code configuration"
-
-            cd ~/edge-cicd/infra
-
-            # 1. Generate runtime configuration from repository
+          
+            cd ~/edge-cicd
+          
+            # 0. Sync repository with GitHub
+            git pull origin main
+          
+            cd infra
+          
+            # 1. Generate runtime configuration from source of truth
             cp .env.example .env
-
+          
             # 2. Apply network & redeploy edge services
             docker compose -f docker-compose-edge.yml --env-file .env up -d
 
