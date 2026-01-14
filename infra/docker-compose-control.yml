@@ -1,13 +1,9 @@
 services:
-  web-server:
-    build: ./web
-    container_name: web-server
-    ports:
-      - "8000:8000"
+  web:
     networks:
-      - edge-network
-    restart: unless-stopped
+      infra_edge-network:
+        ipv4_address: 192.10.10.5
 
 networks:
-  edge-network:
-    driver: brigde
+  infra_edge-network:
+    external: true
