@@ -7,6 +7,8 @@ WEB_SERVER_URL = "http://web-server:8000/ingest"
 
 @app.route("/ingest", methods=["POST"])
 def ingest():
+    print("Gateway version CI/CD v2", flush=True)
+    
     data = request.json
     print("Gateway received data:", data, flush=True)
 
