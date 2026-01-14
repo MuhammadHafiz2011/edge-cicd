@@ -10,4 +10,4 @@ services:
 
 networks:
   edge-network:
-    external: true
+    driver: brigde

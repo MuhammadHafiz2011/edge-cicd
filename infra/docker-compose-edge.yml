@@ -5,11 +5,10 @@ services:
     ports:
       - "1883:1883"
     volumes:
-      - ./mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ../services/mqtt-broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
     networks:
       edge-network:
-        aliases:
-          - mqtt-broker
+        ipv4_address: ${MQTT_IP}
     restart: unless-stopped
 
   receiver:
@@ -19,8 +18,7 @@ services:
       - mqtt-broker
     networks:
       edge-network:
-        aliases:
-          - receiver
+        ipv4_address: ${RECEIVER_IP}
     restart: unless-stopped
 
   gateway:
@@ -32,10 +30,12 @@ services:
       - receiver
     networks:
       edge-network:
-        aliases:
-          - gateway
+        ipv4_address: ${GATEWAY_IP}
     restart: unless-stopped
 
 networks:
   edge-network:
-    external: true
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET}
