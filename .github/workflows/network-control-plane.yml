@@ -40,4 +40,8 @@ jobs:
             # 2. Apply network & redeploy edge services
             docker compose -f docker-compose-edge.yml --env-file .env up -d
 
+            # 3.Apply network & redeploy edge servies
+            docker compose -f docker-compose-control.yml --env-file .env up -d
+
+
         
