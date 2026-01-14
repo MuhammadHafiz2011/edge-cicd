@@ -1,0 +1,28 @@
+name: CI/CD Network Control Plane (Edge IoT)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - infra/**
+      - docs/**
+      - .github/workflows/network-control-plane.yml
+
+jobs:
+  deploy-network:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy Network Configuration to Edge Device
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/edge-cicd/infra
+            docker compose -f docker-compose-edge.yml --env-file .env up -d
