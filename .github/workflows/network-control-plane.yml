@@ -24,5 +24,15 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            set -e
+            echo "[CI/CD] Applying Network as Code configuration"
+
             cd ~/edge-cicd/infra
+
+            # 1. Generate runtime configuration from repository
+            cp .env.example .env
+
+            # 2. Apply network & redeploy edge services
             docker compose -f docker-compose-edge.yml --env-file .env up -d
+
+        
